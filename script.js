@@ -5,6 +5,7 @@ const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 let score = 0;
 let currentQuestion = null;
 let gameData = null;
+let dailyDoubles = [];
 
 // Generate questions using OpenAI API
 async function generateQuestions(topic) {
@@ -56,16 +57,6 @@ QUESTION WRITING RULES:
   * BAD: "The color of the sky" → "Blue" (too vague/simple)
   * GOOD: "Rayleigh scattering of sunlight gives Earth's sky this color during the day" → "Blue"
 - Double-check that your question's wording accurately describes the answer
-- CRITICAL: NEVER include the answer word OR any form/variant of it in the question!
-  * BAD: "This method involves folding egg whites together" → "Folding" (answer is in question!)
-  * GOOD: "This gentle mixing technique incorporates air by lifting and turning ingredients" → "Folding"
-  * BAD: "Fermentation is used to make this type of bread rise" → "Fermented" (too similar!)
-  * GOOD: "This leavening agent causes bread to rise through carbon dioxide production" → "Yeast"
-  * BAD: "This method uses hot oil to fry food" → "Deep Frying" ("fry" is in both!)
-  * GOOD: "This cooking method submerges food in hot oil at 350-375°F" → "Deep Frying"
-  * BAD: "Boiling water is used for this pasta cooking method" → "Boiling" ("boiling" in both!)
-  * GOOD: "This moist-heat cooking method uses water at 212°F" → "Boiling"
-- Before writing each question, check: does ANY word in the question match ANY word in the answer? If yes, rewrite!
 
 Return ONLY a JSON object with this exact structure:
 {
@@ -166,9 +157,15 @@ async function startGame() {
         document.getElementById('topic-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
 
+        // Display the chosen topic
+        document.getElementById('current-topic').textContent = topic;
+
         // Reset score
         score = 0;
         updateScore();
+
+        // Select Daily Double positions
+        selectDailyDoubles();
 
         // Initialize the board
         initializeBoard();
@@ -179,6 +176,52 @@ async function startGame() {
         generateBtn.disabled = false;
         loadingDiv.textContent = '';
     }
+}
+
+// Select Daily Double positions (2 random positions, weighted toward higher values)
+function selectDailyDoubles() {
+    dailyDoubles = [];
+    const usedPositions = new Set();
+
+    // Weights for each row (0-4, where 0 is $200 and 4 is $1000)
+    // Higher rows have higher probability
+    const rowWeights = [1, 2, 3, 5, 8]; // Fibonacci-like progression
+
+    while (dailyDoubles.length < 2) {
+        // Pick a random row based on weights
+        const totalWeight = rowWeights.reduce((a, b) => a + b, 0);
+        let random = Math.random() * totalWeight;
+        let row = 0;
+
+        for (let i = 0; i < rowWeights.length; i++) {
+            random -= rowWeights[i];
+            if (random <= 0) {
+                row = i;
+                break;
+            }
+        }
+
+        // Pick a random column (0-5)
+        const col = Math.floor(Math.random() * 6);
+
+        // Create position key
+        const posKey = `${col}-${row}`;
+
+        // Only add if not already used
+        if (!usedPositions.has(posKey)) {
+            usedPositions.add(posKey);
+            dailyDoubles.push({ category: col, questionIndex: row });
+        }
+    }
+
+    console.log('Daily Doubles placed at:', dailyDoubles);
+}
+
+// Check if a position is a Daily Double
+function isDailyDouble(categoryIndex, questionIndex) {
+    return dailyDoubles.some(dd =>
+        dd.category === categoryIndex && dd.questionIndex === questionIndex
+    );
 }
 
 // Reset game and go back to topic selection
@@ -194,6 +237,7 @@ function resetGame() {
     gameData = null;
     score = 0;
     currentQuestion = null;
+    dailyDoubles = [];
 }
 
 // Initialize the game board
@@ -234,14 +278,94 @@ function showQuestion(categoryIndex, questionIndex, clueElement) {
     }
 
     const question = gameData.questions[categoryIndex][questionIndex];
+    const isDD = isDailyDouble(categoryIndex, questionIndex);
+
     currentQuestion = {
         question: question,
-        clueElement: clueElement
+        clueElement: clueElement,
+        isDailyDouble: isDD,
+        wager: null
     };
 
+    if (isDD) {
+        // Show Daily Double wager screen
+        showDailyDoubleWager();
+    } else {
+        // Show normal question
+        displayQuestion();
+    }
+}
+
+// Show Daily Double wager interface
+function showDailyDoubleWager() {
+    const modal = document.getElementById('question-modal');
+
+    // Calculate max wager (higher of current score or question value, min 200)
+    const maxWager = Math.max(score > 0 ? score : 200, 1000);
+
+    // Hide normal question elements
+    document.getElementById('question-text').style.display = 'none';
+    document.getElementById('answer-input').style.display = 'none';
+    document.getElementById('submit-answer').style.display = 'none';
+    document.getElementById('skip-question').style.display = 'none';
+    document.getElementById('feedback').textContent = '';
+
+    // Show Daily Double announcement
+    document.getElementById('question-value').innerHTML = `
+        <div class="daily-double-announcement">DAILY DOUBLE!</div>
+        <div class="daily-double-wager-prompt">Place your wager (max: $${maxWager})</div>
+        <input type="number" id="wager-input" class="wager-input" min="200" max="${maxWager}" value="200" step="100">
+        <button id="submit-wager" class="btn btn-submit">Lock In Wager</button>
+    `;
+
+    modal.classList.add('show');
+
+    // Focus on wager input
+    setTimeout(() => {
+        const wagerInput = document.getElementById('wager-input');
+        if (wagerInput) {
+            wagerInput.focus();
+            wagerInput.select();
+        }
+    }, 100);
+
+    // Handle wager submission
+    const submitWagerBtn = document.getElementById('submit-wager');
+    const wagerInput = document.getElementById('wager-input');
+
+    const submitWager = () => {
+        const wager = parseInt(wagerInput.value);
+        if (wager >= 200 && wager <= maxWager) {
+            currentQuestion.wager = wager;
+            displayQuestion();
+        } else {
+            alert(`Please enter a wager between $200 and $${maxWager}`);
+        }
+    };
+
+    submitWagerBtn.onclick = submitWager;
+    wagerInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            submitWager();
+        }
+    });
+}
+
+// Display the actual question (after Daily Double wager or immediately for normal questions)
+function displayQuestion() {
+    // Show normal question elements
+    document.getElementById('question-text').style.display = 'block';
+    document.getElementById('answer-input').style.display = 'block';
+    document.getElementById('submit-answer').style.display = 'inline-block';
+    document.getElementById('skip-question').style.display = 'inline-block';
+
     // Update modal content
-    document.getElementById('question-value').textContent = `$${question.value}`;
-    document.getElementById('question-text').textContent = question.question;
+    const valueText = currentQuestion.isDailyDouble
+        ? `DAILY DOUBLE - $${currentQuestion.wager}`
+        : `$${currentQuestion.question.value}`;
+
+    document.getElementById('question-value').textContent = valueText;
+    document.getElementById('question-text').textContent = currentQuestion.question.question;
     document.getElementById('answer-input').value = '';
     document.getElementById('feedback').textContent = '';
     document.getElementById('feedback').className = 'feedback';
@@ -249,7 +373,7 @@ function showQuestion(categoryIndex, questionIndex, clueElement) {
     // Disable submit button initially (no answer yet)
     document.getElementById('submit-answer').disabled = true;
 
-    // Show modal
+    // Show modal and focus on answer input
     document.getElementById('question-modal').classList.add('show');
     document.getElementById('answer-input').focus();
 }
@@ -259,6 +383,17 @@ function updateSubmitButton() {
     const answerInput = document.getElementById('answer-input');
     const submitButton = document.getElementById('submit-answer');
     submitButton.disabled = answerInput.value.trim() === '';
+}
+
+// Normalize text for comparison (removes spaces, hyphens, punctuation, articles)
+function normalizeAnswer(text) {
+    return text
+        .toLowerCase()
+        .replace(/^(the|a|an)\s+/i, '') // Remove leading articles
+        .replace(/\s+/g, '') // Remove all spaces
+        .replace(/[-_]/g, '') // Remove hyphens and underscores
+        .replace(/[.,!?;:'"]/g, '') // Remove punctuation
+        .trim();
 }
 
 // Helper function to get word stem (basic stemming)
@@ -277,26 +412,46 @@ function getWordStem(word) {
 
 // Check answer
 function checkAnswer() {
-    const userAnswer = document.getElementById('answer-input').value.trim().toLowerCase();
-    const correctAnswer = currentQuestion.question.answer.toLowerCase();
+    const userAnswer = document.getElementById('answer-input').value.trim();
+    const correctAnswer = currentQuestion.question.answer;
     const feedback = document.getElementById('feedback');
 
+    // Determine the value to add/subtract (use wager for Daily Doubles)
+    const pointValue = currentQuestion.isDailyDouble
+        ? currentQuestion.wager
+        : currentQuestion.question.value;
+
+    // Normalize both answers for comparison
+    const normalizedUser = normalizeAnswer(userAnswer);
+    const normalizedCorrect = normalizeAnswer(correctAnswer);
+
+    // Also check lowercase versions for simpler matching
+    const userLower = userAnswer.toLowerCase().trim();
+    const correctLower = correctAnswer.toLowerCase().trim();
+
     // Get stems for both answers
-    const userStem = getWordStem(userAnswer);
-    const correctStem = getWordStem(correctAnswer);
+    const userStem = getWordStem(normalizedUser);
+    const correctStem = getWordStem(normalizedCorrect);
 
     // Flexible answer checking
-    const isCorrect = userAnswer === correctAnswer ||
-                     userAnswer.includes(correctAnswer) ||
-                     correctAnswer.includes(userAnswer) ||
-                     userStem === correctStem ||
-                     userAnswer.includes(correctStem) ||
-                     correctAnswer.includes(userStem);
+    const isCorrect =
+        // Exact match (case insensitive)
+        userLower === correctLower ||
+        // Normalized match (handles spaces, hyphens, articles, punctuation)
+        normalizedUser === normalizedCorrect ||
+        // Partial match (one contains the other)
+        (normalizedUser.length > 3 && normalizedCorrect.includes(normalizedUser)) ||
+        (normalizedCorrect.length > 3 && normalizedUser.includes(normalizedCorrect)) ||
+        // Stem match (handles variations like singular/plural)
+        (userStem.length > 3 && correctStem.length > 3 && userStem === correctStem) ||
+        // Check if user answer contains the correct answer (or vice versa) after basic cleanup
+        (userLower.length > 3 && correctLower.includes(userLower)) ||
+        (correctLower.length > 3 && userLower.includes(correctLower));
 
     if (isCorrect) {
         feedback.textContent = `Correct! The answer is: ${currentQuestion.question.answer}`;
         feedback.className = 'feedback correct';
-        score += currentQuestion.question.value;
+        score += pointValue;
         updateScore();
 
         // Mark clue as used
@@ -308,7 +463,7 @@ function checkAnswer() {
     } else {
         feedback.textContent = `Incorrect! The answer is: ${currentQuestion.question.answer}`;
         feedback.className = 'feedback incorrect';
-        score -= currentQuestion.question.value;
+        score -= pointValue;
         updateScore();
 
         // Mark clue as used
