@@ -51,12 +51,87 @@ QUESTION WRITING RULES:
 - Avoid overly obscure trivia even at $1000 - should still be answerable by someone knowledgeable
 - Use varied styles: "This person...", "In this year...", "This event...", "This famous..."
 - Keep it educational and fun!
-- BE FACTUALLY ACCURATE! Ensure questions and answers match correctly:
+
+CRITICAL RULE #1 - ANSWER MUST MATCH CATEGORY (MOST IMPORTANT RULE!):
+
+  READ THE CATEGORY NAME CAREFULLY! Your answer MUST be exactly what the category asks for.
+
+  * Category "Famous Chefs" → Answer MUST be a CHEF (Gordon Ramsay, Julia Child)
+    - NOT a cooking technique, NOT a food, NOT a restaurant - ONLY a chef!
+
+  * Category "Sports Legends" → Answer MUST be an ATHLETE (Michael Jordan, Serena Williams)
+    - NOT a food, NOT a stadium, NOT equipment - ONLY an athlete!
+
+  * Category "Historic Landmarks" → Answer MUST be a LANDMARK (Eiffel Tower, Taj Mahal)
+    - NOT a food, NOT a person, NOT an event - ONLY a landmark!
+
+  * Category "Food & Cuisine" → Answer CAN be food (Pizza, Sushi)
+    - This is where food answers belong!
+
+  COMMON MISTAKES TO AVOID:
+  * BAD: Category "Sports" → Answer "Hot dog" (that's FOOD, not SPORTS!)
+  * GOOD: Category "Sports" → Answer "Babe Ruth" (that's an athlete)
+
+  * BAD: Category "Landmarks" → Answer "Lobster roll" (that's FOOD, not a LANDMARK!)
+  * GOOD: Category "Landmarks" → Answer "Statue of Liberty" (that's a landmark)
+
+  * BAD: Category "Famous Chefs" → Answer "Sous vide" (that's a technique, not a chef!)
+  * GOOD: Category "Famous Chefs" → Answer "Thomas Keller" (that's a chef)
+
+  BEFORE CREATING ANY ANSWER: Ask yourself "Is this answer literally what the category name describes?"
+  If NO → Pick a different answer that matches!
+
+CRITICAL RULE #2 - NEVER PUT THE ANSWER IN THE QUESTION:
+  * Check if ANY WORD in your answer appears in the question
+  * Check if the ROOT of any answer word appears in the question
+  * If the answer is multiple words, check EACH word individually
+  * Remove ALL words that match or contain the answer
+
+  EXAMPLES OF WHAT NOT TO DO:
+  * BAD: "This tool is used to zest citrus fruits" → "Zester" (ZEST matches ZESTER!)
+  * GOOD: "This small kitchen tool has tiny sharp holes for removing citrus peel" → "Zester"
+
+  * BAD: "This sandwich made with lobster salad is famous in Massachusetts" → "Lobster roll" (LOBSTER is in the question!)
+  * GOOD: "This New England seafood sandwich is served on a toasted split-top bun" → "Lobster roll"
+
+  * BAD: "This Massachusetts town was the site of the Salem Witch Trials" → "Salem" (SALEM is in the question!)
+  * GOOD: "This Massachusetts town was the site of infamous witch trials in 1692" → "Salem"
+
+  * BAD: "This marinaded meat cooking method is popular" → "Marinating" (MARINADE matches MARINATING!)
+  * GOOD: "This method of soaking meat in seasoned liquid before cooking adds flavor" → "Marinating"
+
+  WORD-BY-WORD CHECK - If answer is "Lobster roll":
+  1. Does "lobster" appear in question? → Remove it!
+  2. Does "roll" appear in question? → Remove it!
+  3. Do word roots appear (lob-, roll-)? → Remove them!
+
+CRITICAL RULE #3 - BE FACTUALLY ACCURATE:
+  * Ensure questions and answers match correctly
   * BAD: "What chemical reaction causes bread to rise?" → "Yeast" (yeast is an organism, not a reaction)
   * GOOD: "This microorganism causes bread dough to rise through fermentation" → "Yeast"
-  * BAD: "The color of the sky" → "Blue" (too vague/simple)
-  * GOOD: "Rayleigh scattering of sunlight gives Earth's sky this color during the day" → "Blue"
-- Double-check that your question's wording accurately describes the answer
+
+MANDATORY VALIDATION - For EVERY question, check these THREE things:
+
+1. CATEGORY MATCH: Does the answer LITERALLY match what the category describes?
+   - Category "Famous Chefs" → Answer MUST be a chef's name (NOT food, NOT techniques)
+   - Category "Sports Legends" → Answer MUST be an athlete (NOT food, NOT stadiums)
+   - Category "Landmarks" → Answer MUST be a landmark (NOT food, NOT people)
+   - Category "Food & Cuisine" → Answer CAN be food
+
+   ASK: "If the category is 'Sports', is my answer about sports?"
+   If the answer is a food item and category is NOT about food → REJECT!
+   If answer type doesn't match category → REJECT and create new question!
+
+2. ANSWER NOT IN QUESTION: Split your answer into individual words and check each one
+   - Answer "Lobster roll" → Check for "lobster" AND "roll" in question
+   - Answer "New York" → Check for "New" AND "York" in question
+   - Answer "Zester" → Check for "zest", "zester", "zesting" in question
+   - If ANY word from answer appears in question → REJECT and rewrite question
+
+3. FACTUAL ACCURACY: Does the question accurately describe the answer?
+   - If description is wrong → REJECT and fix it
+
+DO NOT SKIP THIS VALIDATION! Check every single question before finalizing.
 
 Return ONLY a JSON object with this exact structure:
 {
@@ -233,6 +308,10 @@ function resetGame() {
     document.getElementById('topic-screen').style.display = 'block';
     document.getElementById('game-screen').style.display = 'none';
 
+    // Re-enable the generate button and clear loading text
+    document.getElementById('generate-game').disabled = false;
+    document.getElementById('loading').textContent = '';
+
     // Reset game state
     gameData = null;
     score = 0;
@@ -396,10 +475,15 @@ function normalizeAnswer(text) {
         .trim();
 }
 
-// Helper function to get word stem (basic stemming)
+// Helper function to get word stem (basic stemming for better matching)
 function getWordStem(word) {
     // Remove common suffixes to get base form
-    const suffixes = ['ing', 'ed', 'es', 's', 'tion', 'ation', 'ment', 'ly', 'er', 'est', 'ness'];
+    const suffixes = [
+        'ation', 'tion', // Handle these first (longer suffixes)
+        'ing', 'ed', 'es', 's',
+        'ment', 'ly', 'er', 'est',
+        'ness', 'ion', 'ate', 'e'
+    ];
     let stem = word.toLowerCase();
 
     for (const suffix of suffixes) {
@@ -429,9 +513,17 @@ function checkAnswer() {
     const userLower = userAnswer.toLowerCase().trim();
     const correctLower = correctAnswer.toLowerCase().trim();
 
-    // Get stems for both answers
+    // Get stems for both answers (for the normalized versions)
     const userStem = getWordStem(normalizedUser);
     const correctStem = getWordStem(normalizedCorrect);
+
+    // Split into words for word-by-word comparison
+    const userWords = userLower.split(/\s+/);
+    const correctWords = correctLower.split(/\s+/);
+
+    // Check if main words match (ignoring articles)
+    const userMainWords = userWords.filter(w => !['the', 'a', 'an'].includes(w));
+    const correctMainWords = correctWords.filter(w => !['the', 'a', 'an'].includes(w));
 
     // Flexible answer checking
     const isCorrect =
@@ -439,14 +531,25 @@ function checkAnswer() {
         userLower === correctLower ||
         // Normalized match (handles spaces, hyphens, articles, punctuation)
         normalizedUser === normalizedCorrect ||
-        // Partial match (one contains the other)
+        // Stem match on normalized text (handles "marinate" vs "marination")
+        (userStem.length > 3 && correctStem.length > 3 && userStem === correctStem) ||
+        // Main words match (all correct words appear in user answer)
+        (correctMainWords.length > 0 && correctMainWords.every(word =>
+            userMainWords.some(userWord => {
+                // Direct match or stem match
+                return userWord === word ||
+                       getWordStem(userWord) === getWordStem(word) ||
+                       userWord.includes(word) ||
+                       word.includes(userWord);
+            })
+        )) ||
+        // Substring match for normalized answers (handles "spiderman" vs "spider-man")
         (normalizedUser.length > 3 && normalizedCorrect.includes(normalizedUser)) ||
         (normalizedCorrect.length > 3 && normalizedUser.includes(normalizedCorrect)) ||
-        // Stem match (handles variations like singular/plural)
-        (userStem.length > 3 && correctStem.length > 3 && userStem === correctStem) ||
-        // Check if user answer contains the correct answer (or vice versa) after basic cleanup
-        (userLower.length > 3 && correctLower.includes(userLower)) ||
-        (correctLower.length > 3 && userLower.includes(correctLower));
+        // Check if all non-trivial words from correct answer appear in user answer
+        (correctMainWords.length > 0 && correctMainWords.every(word =>
+            word.length > 2 && normalizedUser.includes(normalizeAnswer(word))
+        ));
 
     if (isCorrect) {
         feedback.textContent = `Correct! The answer is: ${currentQuestion.question.answer}`;
