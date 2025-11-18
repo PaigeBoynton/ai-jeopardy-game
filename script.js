@@ -3,6 +3,8 @@ let score = 0;
 let currentQuestion = null;
 let gameData = null;
 let dailyDoubles = [];
+let questionsAnswered = 0;
+let correctAnswers = 0;
 
 // Check if we're running locally or on Vercel
 function isLocalEnvironment() {
@@ -260,8 +262,13 @@ async function startGame() {
         // Display the chosen topic
         document.getElementById('current-topic').textContent = topic;
 
-        // Reset score
+        // Store topic for later
+        gameData.topic = topic;
+
+        // Reset score and statistics
         score = 0;
+        questionsAnswered = 0;
+        correctAnswers = 0;
         updateScore();
 
         // Select Daily Double positions
@@ -325,7 +332,17 @@ function isDailyDouble(categoryIndex, questionIndex) {
 }
 
 // Reset game and go back to topic selection
-function resetGame() {
+async function resetGame() {
+    // Save game results if user is logged in and game was played
+    if (currentUser && gameData && questionsAnswered > 0) {
+        await saveGameResult(
+            gameData.topic,
+            questionsAnswered,
+            correctAnswers,
+            score
+        );
+    }
+
     // Clear the game board
     document.getElementById('game-board').innerHTML = '';
 
@@ -342,6 +359,8 @@ function resetGame() {
     score = 0;
     currentQuestion = null;
     dailyDoubles = [];
+    questionsAnswered = 0;
+    correctAnswers = 0;
 }
 
 // Initialize the game board
@@ -576,7 +595,10 @@ function checkAnswer() {
             word.length > 2 && normalizedUser.includes(normalizeAnswer(word))
         ));
 
+    // Track statistics
+    questionsAnswered++;
     if (isCorrect) {
+        correctAnswers++;
         feedback.textContent = `Correct! The answer is: ${currentQuestion.question.answer}`;
         feedback.className = 'feedback correct';
         score += pointValue;
@@ -605,6 +627,9 @@ function checkAnswer() {
 
 // Skip question
 function skipQuestion() {
+    // Track as answered but not correct
+    questionsAnswered++;
+
     const feedback = document.getElementById('feedback');
     feedback.textContent = `The answer was: ${currentQuestion.question.answer}`;
     feedback.className = 'feedback';
