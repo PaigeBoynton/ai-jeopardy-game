@@ -80,29 +80,38 @@ CRITICAL RULE #1 - ANSWER MUST MATCH CATEGORY (MOST IMPORTANT RULE!):
   BEFORE CREATING ANY ANSWER: Ask yourself "Is this answer literally what the category name describes?"
   If NO → Pick a different answer that matches!
 
-CRITICAL RULE #2 - NEVER PUT THE ANSWER IN THE QUESTION:
-  * Check if ANY WORD in your answer appears in the question
-  * Check if the ROOT of any answer word appears in the question
-  * If the answer is multiple words, check EACH word individually
-  * Remove ALL words that match or contain the answer
+CRITICAL RULE #2 - NEVER PUT THE ANSWER IN THE QUESTION (AUTOMATIC REJECTION):
 
-  EXAMPLES OF WHAT NOT TO DO:
-  * BAD: "This tool is used to zest citrus fruits" → "Zester" (ZEST matches ZESTER!)
+  BEFORE FINALIZING ANY QUESTION, RUN THIS TEST:
+  1. Split the answer into individual words
+  2. Check if ANY word (or word root) appears ANYWHERE in the question
+  3. If YES → REJECT and completely rewrite the question
+
+  EXAMPLES OF BANNED QUESTIONS:
+  * BANNED: "This tool is used to zest citrus fruits" → Answer: "Zester"
+    WHY: "zest" is the root of "zester" - REWRITE REQUIRED
+
+  * BANNED: "This sandwich made with lobster salad is famous in Massachusetts" → Answer: "Lobster roll"
+    WHY: Word "lobster" appears in question - REWRITE REQUIRED
+
+  * BANNED: "This prestigious women's college is located in Wellesley, MA" → Answer: "Wellesley College"
+    WHY: Word "Wellesley" appears in question - REWRITE REQUIRED
+
+  * BANNED: "This Massachusetts town was the site of the Salem Witch Trials" → Answer: "Salem"
+    WHY: Word "Salem" appears in question - REWRITE REQUIRED
+
+  CORRECT VERSIONS:
   * GOOD: "This small kitchen tool has tiny sharp holes for removing citrus peel" → "Zester"
-
-  * BAD: "This sandwich made with lobster salad is famous in Massachusetts" → "Lobster roll" (LOBSTER is in the question!)
   * GOOD: "This New England seafood sandwich is served on a toasted split-top bun" → "Lobster roll"
-
-  * BAD: "This Massachusetts town was the site of the Salem Witch Trials" → "Salem" (SALEM is in the question!)
+  * GOOD: "This prestigious women's college is located in a wealthy Boston suburb" → "Wellesley College"
   * GOOD: "This Massachusetts town was the site of infamous witch trials in 1692" → "Salem"
 
-  * BAD: "This marinaded meat cooking method is popular" → "Marinating" (MARINADE matches MARINATING!)
-  * GOOD: "This method of soaking meat in seasoned liquid before cooking adds flavor" → "Marinating"
-
-  WORD-BY-WORD CHECK - If answer is "Lobster roll":
-  1. Does "lobster" appear in question? → Remove it!
-  2. Does "roll" appear in question? → Remove it!
-  3. Do word roots appear (lob-, roll-)? → Remove them!
+  VALIDATION CHECKLIST FOR EVERY QUESTION:
+  □ Split answer into words: ["word1", "word2", ...]
+  □ Search question for each word
+  □ Search question for word roots (first 3-4 letters)
+  □ If ANY match found → REJECT and create completely new question
+  □ Only accept if NO matches found
 
 CRITICAL RULE #3 - BE FACTUALLY ACCURATE:
   * Ensure questions and answers match correctly
@@ -149,7 +158,7 @@ Return ONLY a JSON object with this exact structure:
 
 Keep answers SHORT (1-4 words max). All categories must relate to: ${topic}`
         }],
-        temperature: 0.8
+        temperature: 0.3
     };
 
     try {
