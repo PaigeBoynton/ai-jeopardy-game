@@ -863,13 +863,6 @@ h1 {
     box-shadow: 0 6px 20px rgba(255, 255, 255, 0.2);
 }
 
-.guest-note {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 0.85em;
-    margin-top: 10px;
-    text-align: center;
-}
-
 /* User header on topic screen */
 .user-header {
     margin-bottom: 20px;

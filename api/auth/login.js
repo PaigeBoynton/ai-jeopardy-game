@@ -1,61 +1,65 @@
+import { neon } from '@neondatabase/serverless';
 import crypto from 'crypto';
-import { kv } from '@vercel/kv';
 
-// Load user from KV
-async function getUser(username) {
-  const user = await kv.get(`user:${username.toLowerCase()}`);
-  return user;
-}
-
-// Hash password
+// Hash password using SHA-256
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-// Generate session token
-function generateToken() {
-  return crypto.randomBytes(32).toString('hex');
-}
-
 export default async function handler(req, res) {
+  // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { username, password } = req.body;
 
+  // Validate input
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
   try {
-    const user = await getUser(username);
+    // Connect to database
+    const sql = neon(process.env.DATABASE_URL);
 
-    if (!user) {
+    // Get user from database
+    const result = await sql`
+      SELECT id, username, password_hash, created_at
+      FROM users
+      WHERE username = ${username.toLowerCase()}
+    `;
+
+    if (result.length === 0) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
+    const user = result[0];
+
+    // Check password
     const passwordHash = hashPassword(password);
-    if (user.passwordHash !== passwordHash) {
+    if (user.password_hash !== passwordHash) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    // Generate session token
-    const token = generateToken();
+    // Get total games count
+    const gamesCount = await sql`
+      SELECT COUNT(*) as count FROM games WHERE user_id = ${user.id}
+    `;
 
-    // Return success with user data and token
-    res.status(200).json({
+    // Return success
+    return res.status(200).json({
       success: true,
-      token: token,
       user: {
         id: user.id,
         username: user.username,
-        createdAt: user.createdAt,
-        totalGames: user.games.length
+        createdAt: user.created_at,
+        totalGames: parseInt(gamesCount[0].count)
       }
     });
+
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Failed to login' });
+    return res.status(500).json({ error: 'Failed to login' });
   }
 }

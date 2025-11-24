@@ -194,7 +194,7 @@ function showTopicScreen() {
 }
 
 async function showGameHistory() {
-    if (!currentUser) return;
+    if (!currentUser || currentUser.isGuest) return;
 
     document.getElementById('topic-screen').style.display = 'none';
     document.getElementById('history-screen').style.display = 'block';

@@ -1,23 +1,13 @@
+import { neon } from '@neondatabase/serverless';
 import crypto from 'crypto';
-import { kv } from '@vercel/kv';
 
-// Load user from KV
-async function getUser(username) {
-  const user = await kv.get(`user:${username.toLowerCase()}`);
-  return user;
-}
-
-// Save user to KV
-async function saveUser(username, userData) {
-  await kv.set(`user:${username.toLowerCase()}`, userData);
-}
-
-// Hash password
+// Hash password using SHA-256
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
 export default async function handler(req, res) {
+  // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -38,34 +28,42 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Connect to database
+    const sql = neon(process.env.DATABASE_URL);
+
     // Check if username already exists
-    const existingUser = await getUser(username);
-    if (existingUser) {
+    const existingUser = await sql`
+      SELECT id FROM users WHERE username = ${username.toLowerCase()}
+    `;
+
+    if (existingUser.length > 0) {
       return res.status(409).json({ error: 'Username already exists' });
     }
 
-    // Create new user
-    const userId = crypto.randomUUID();
-    const userData = {
-      id: userId,
-      username: username,
-      passwordHash: hashPassword(password),
-      createdAt: new Date().toISOString(),
-      games: []
-    };
+    // Hash password
+    const passwordHash = hashPassword(password);
 
-    await saveUser(username, userData);
+    // Insert new user
+    const result = await sql`
+      INSERT INTO users (username, password_hash)
+      VALUES (${username.toLowerCase()}, ${passwordHash})
+      RETURNING id, username, created_at
+    `;
 
-    // Return success (don't send password hash to client)
-    res.status(201).json({
+    const user = result[0];
+
+    // Return success
+    return res.status(201).json({
       success: true,
       user: {
-        id: userId,
-        username: username
+        id: user.id,
+        username: user.username,
+        createdAt: user.created_at
       }
     });
+
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Failed to register user' });
+    return res.status(500).json({ error: 'Failed to register user' });
   }
 }

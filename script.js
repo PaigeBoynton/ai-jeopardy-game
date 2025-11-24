@@ -334,7 +334,7 @@ function isDailyDouble(categoryIndex, questionIndex) {
 // Reset game and go back to topic selection
 async function resetGame() {
     // Save game results if user is logged in and game was played
-    if (currentUser && gameData && questionsAnswered > 0) {
+    if (typeof currentUser !== 'undefined' && currentUser && !currentUser.isGuest && gameData && questionsAnswered > 0) {
         await saveGameResult(
             gameData.topic,
             questionsAnswered,
