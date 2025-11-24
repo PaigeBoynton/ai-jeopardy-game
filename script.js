@@ -17,7 +17,7 @@ function isLocalEnvironment() {
 async function generateQuestions(topic, attemptNumber = 1) {
     const loadingDiv = document.getElementById('loading');
     loadingDiv.textContent = attemptNumber > 1
-        ? 'Refining questions...'
+        ? 'Refining questions'
         : 'Generating questions';
 
     const messagePayload = {
